@@ -12,7 +12,7 @@ PVector shearSpringColor = new PVector(10,255,58);
 PVector[][] pos = new PVector[gridSize][gridSize];
 PVector[][] vel = new PVector[gridSize][gridSize];
 PVector[][] force = new PVector[gridSize][gridSize];
-float delTime = 0.1;
+float delTime = 0.05;
 
 //Spring Properties
 float structSpringConst = 0.5;
@@ -24,18 +24,22 @@ float damp = 2;
 
 void setup(){
     size(1200, 1200);
+    //Initially setting up the grid and giving velocites
     for(int i = 0; i < gridSize; i++){
         for(int j = 0; j < gridSize; j++){
             pos[i][j] = new PVector((i-gridSize/2) * springNaturalLength, (j-gridSize/2) * springNaturalLength);
             vel[i][j] = new PVector(0, 0, 0);
         }
     }
+
+    //Small perturbation in one of the masses
     pos[0][0] = new PVector((-gridSize/2) * springNaturalLength + 50, (-gridSize/2) * springNaturalLength );
 }
 
 void draw(){
     background(0);
     translate(width/2, height/2);
+    // calculating and storing forces
     for(int i = 0; i < gridSize; i++){
         for(int j = 0; j < gridSize; j++){
             if (i == gridSize - 1){
@@ -46,11 +50,12 @@ void draw(){
         }
     }
     
-    drawGrid(pos, ellipseRadius);
+    drawGrid(pos, ellipseRadius); //Drawing the grid
     
+    //Updating Positions
     for(int i = 0; i < gridSize; i++){
         for(int j = 0; j < gridSize; j++){
-            vel[i][j].add(force[i][j].x * delTime, force[i][j].y * delTime);
+            vel[i][j].add(force[i][j].x * delTime / mass, force[i][j].y * delTime / mass);
             pos[i][j].add(vel[i][j].x * delTime, vel[i][j].y * delTime);
         }
     }
@@ -66,9 +71,11 @@ void drawGrid(PVector[][] pos, float rad){
                         continue;
                     }
                     
+                    //Shear Spring
                     if(k*k + l*l == 2){
                         stroke(shearSpringColor.x, shearSpringColor.y, shearSpringColor.z);
                     }
+                    //Structure Spring
                     else{
                         stroke(structSpringColor.x, structSpringColor.y, structSpringColor.z);
                     }
@@ -107,16 +114,19 @@ PVector calcForce(int i, int j){
             float dx = distance - springNaturalLength * sqrt(k*k + l*l);
             displacement = direction.mult(dx);
             
+            //Shear Spring
             if(l*l + k*k == 2){
                 force.add(displacement.x * shearSpringConst, displacement.y * shearSpringConst);    
-            }else{
+            }
+            //Structure Spring
+            else{
                 force.add(displacement.x * structSpringConst, displacement.y * structSpringConst); 
             } 
         }
     }
-    
+ 
+    //Damping force
     force.sub(vel[i][j].z * damp, vel[i][j].y * damp);
-    force = force.div(mass);
-    
+
     return force;
 }
