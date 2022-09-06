@@ -1,36 +1,39 @@
-//Mass
-float mass = 1;
-
 //Grid Specifications
-int gridSize = 5;
-int springNaturalLength = 100;
-float ellipseRadius = 10 * mass;
+int gridSize = 10;
+int springNaturalLength = 50;
+float scaleFactor = 10;
 PVector structSpringColor = new PVector(255,10,0);
 PVector shearSpringColor = new PVector(10,255,58);
 
-//Simulation Variables
-PVector[][] pos = new PVector[gridSize][gridSize];
-PVector[][] vel = new PVector[gridSize][gridSize];
-PVector[][] force = new PVector[gridSize][gridSize];
-float delTime = 0.05;
 
 //Spring Properties
-float structSpringConst = 3;
-float shearSpringConst = 0.5;
+float structSpringConst = 50;
+float shearSpringConst = 5;
 
 //Damp
 float damp = 2;
 
 //Const force in x direction on one element
-final PVector constForce = new PVector(0, -100,0);
+final PVector constForce1 = new PVector(0, -500,0);
+final PVector constForce2 = new PVector(0, -250,0);
+final PVector constForce3 = new PVector(0, -125,0);
+final PVector constForce4 = new PVector(0, -75,0);
+Point[][] point = new Point[gridSize][gridSize];
+float currTime = 0;
+float delTime = 0.05;
+PVector gravity = new PVector(0, 200);
 
 void setup(){
     size(1200, 1200);
     //Initially setting up the grid and giving velocites
     for(int i = 0; i < gridSize; i++){
         for(int j = 0; j < gridSize; j++){
-            pos[i][j] = new PVector((i-gridSize/2) * springNaturalLength, (j-gridSize/2) * springNaturalLength);
-            vel[i][j] = new PVector(0, 0, 0);
+            PVector initialPos = new PVector((i-gridSize/2) * springNaturalLength, (j-gridSize/2) * springNaturalLength);
+            PVector initialVel = new PVector(0, 0, 0);
+            PVector initialForce = new PVector(0,0,0);
+            float mass = 1;
+    
+            point[i][j] = new Point(initialPos, initialVel, initialForce, mass);
         }
     }
 
@@ -39,31 +42,41 @@ void setup(){
 }
 
 void draw(){
+    currTime += delTime;
     background(0);
-    translate(width/2, height/2);
+    translate(width/2, height/3);
     // calculating and storing forces
     for(int i = 0; i < gridSize; i++){
         for(int j = 0; j < gridSize; j++){
             if (i == gridSize - 1){
-                force[i][j] = new PVector(0,0);
+                point[i][j].changeForce(new PVector(0,0));
                 continue;
             }
-            force[i][j] = calcForce(i, j); 
+            point[i][j].changeForce(calcForce(i, j)); 
+            point[i][j].addForce(gravity.mult(point[i][j].getMass()));
         }
     }
-    force[0][0] = force[0][0].add(constForce);
-    drawGrid(pos, ellipseRadius); //Drawing the grid
-    arrowLine(pos[0][0].x, pos[0][0].y, pos[0][0].x + constForce.x, pos[0][0].y + constForce.y, radians(0), radians(60));
+    if(currTime < 5){
+        point[0][0].addForce(constForce1);
+        point[1][0].addForce(constForce2);
+        point[2][0].addForce(constForce3);
+        point[3][0].addForce(constForce4);
+        arrowLine(point[0][0], constForce1,radians(0), radians(60));
+        arrowLine(point[1][0], constForce2,radians(0), radians(60));
+        arrowLine(point[2][0], constForce3,radians(0), radians(60));
+        arrowLine(point[3][0], constForce4,radians(0), radians(60));
+    }
+    
+    drawGrid(point); //Drawing the grid
     //Updating Positions
     for(int i = 0; i < gridSize; i++){
         for(int j = 0; j < gridSize; j++){
-            vel[i][j].add(force[i][j].x * delTime / mass, force[i][j].y * delTime / mass);
-            pos[i][j].add(vel[i][j].x * delTime, vel[i][j].y * delTime);
+            point[i][j].sim();
         }
     }
 }
 
-void drawGrid(PVector[][] pos, float rad){
+void drawGrid(Point[][] point){
     //Drawing the Springs
     for(int i = 0; i < gridSize; i++){
         for(int j = 0; j < gridSize; j++){
@@ -81,7 +94,7 @@ void drawGrid(PVector[][] pos, float rad){
                     else{
                         stroke(structSpringColor.x, structSpringColor.y, structSpringColor.z);
                     }
-                    line(pos[i+k][j+l].x, pos[i+k][j+l].y, pos[i][j].x, pos[i][j].y);
+                    line(point[i+k][j+l].getPos().x, point[i+k][j+l].getPos().y, point[i][j].getPos().x, point[i][j].getPos().y);
                     stroke(255);
                 }
             }         
@@ -91,7 +104,8 @@ void drawGrid(PVector[][] pos, float rad){
     //Drawing the Masses
     for(int i = 0; i < gridSize; i++){
         for(int j = 0; j < gridSize; j++){
-                ellipse(pos[i][j].x, pos[i][j].y, rad, rad);
+            float rad = point[i][j].getMass() * scaleFactor;
+            ellipse(point[i][j].getPos().x, point[i][j].getPos().y, rad, rad);
         }
     }
 }
@@ -107,8 +121,8 @@ PVector calcForce(int i, int j){
                 continue;
             }
             
-            PVector currDisp = new PVector(pos[i + k][j + l].x, pos[i+k][j+l].y);
-            currDisp.sub(pos[i][j]);
+            PVector currDisp = new PVector(point[i + k][j + l].getPos().x, point[i+k][j+l].getPos().y);
+            currDisp.sub(point[i][j].getPos());
             
             float distance = currDisp.mag();
             PVector direction = currDisp.normalize();
@@ -128,7 +142,7 @@ PVector calcForce(int i, int j){
     }
  
     //Damping force
-    force.sub(vel[i][j].z * damp, vel[i][j].y * damp);
+    force.sub(point[i][j].getVel().z * damp, point[i][j].getVel().y * damp);
 
     return force;
 }
@@ -144,18 +158,21 @@ PVector calcForce(int i, int j){
  * endAngle - angle of arrow at end of line (in radians)
  * solid - true for a solid arrow; false for an "open" arrow
  */
-void arrowLine(float x0, float y0, float x1, float y1,
-  float startAngle, float endAngle)
+void arrowLine(Point point,PVector constForce,float startAngle, float endAngle)
 {
-  line(x0, y0, x1, y1);
-  if (startAngle != 0)
-  {
-    arrowhead(x0, y0, atan2(y1 - y0, x1 - x0), startAngle);
-  }
-  if (endAngle != 0)
-  {
-    arrowhead(x1, y1, atan2(y0 - y1, x0 - x1), endAngle);
-  }
+    float x0 = point.getPos().x;
+    float y0 = point.getPos().y;
+    float x1 = x0 + constForce.x / scaleFactor;
+    float y1 = y0 + constForce.y / scaleFactor;
+    line(x0, y0, x1, y1);
+    if (startAngle != 0)
+    {
+      arrowhead(x0, y0, atan2(y1 - y0, x1 - x0), startAngle);
+    }
+    if (endAngle != 0)
+    {
+      arrowhead(x1, y1, atan2(y0 - y1, x0 - x1), endAngle);
+    }
 }
 
 /*
@@ -169,16 +186,16 @@ void arrowLine(float x0, float y0, float x1, float y1,
 void arrowhead(float x0, float y0, float lineAngle,
   float arrowAngle)
 {
-  float x2;
-  float y2;
-  float x3;
-  float y3;
-  final float SIZE = 10;
-  
-  x2 = x0 + SIZE * cos(lineAngle + arrowAngle);
-  y2 = y0 + SIZE * sin(lineAngle + arrowAngle);
-  x3 = x0 + SIZE * cos(lineAngle - arrowAngle);
-  y3 = y0 + SIZE * sin(lineAngle - arrowAngle);
-  
-  triangle(x0, y0, x2, y2, x3, y3);
+    float x2;
+    float y2;
+    float x3;
+    float y3;
+    final float SIZE = 10;
+    
+    x2 = x0 + SIZE * cos(lineAngle + arrowAngle);
+    y2 = y0 + SIZE * sin(lineAngle + arrowAngle);
+    x3 = x0 + SIZE * cos(lineAngle - arrowAngle);
+    y3 = y0 + SIZE * sin(lineAngle - arrowAngle);
+    
+    triangle(x0, y0, x2, y2, x3, y3);
 }
